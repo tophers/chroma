@@ -1,0 +1,65 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Flask environment
+.env
+*.env
+instance/
+*.sqlite3
+
+# Flask cache / sessions
+*.log
+*.pid
+
+# venv/virtualenv
+venv/
+env/
+ENV/
+.venv/
+.pyvenv/
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# MacOS & system files
+.DS_Store
+Thumbs.db
+
+# Pytest
+.cache/
+*.cover
+coverage.xml
+htmlcov/
+
+# Migrations
+migrations/
+
+# pip dependency resolver files
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing results
+nosetests.xml
+test-results.xml
+junit*.xml
+reports/*
+# Ignore compiled shared objects
+*.so
+
+# Ignore build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Ignore local tools/scripts outputs
+*.bak
+*.swp
+
+# Ignore devtools
+*.db
+*.txt

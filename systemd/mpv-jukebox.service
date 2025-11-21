@@ -1,0 +1,37 @@
+[Unit]
+Description=MPV video player for Chroma Jukebox
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+
+WorkingDirectory=/opt/jukebox
+
+ExecStart=/usr/bin/mpv \
+  --idle=yes \
+  --fs \
+  --geometry=100%%x100%% \
+  --autofit-larger=100%%x100%% \
+  --no-border \
+  --input-ipc-server=/tmp/mpv-music.sock \
+  --no-terminal \
+  --hwdec=auto-safe \
+  --vo=gpu \
+  --gpu-context=drm \
+  --drm-mode=1920x1080@60 \
+  --video-sync=display-resample \
+  --scale=bilinear \
+  --cscale=bilinear \
+  --dscale=bilinear
+
+Restart=always
+RestartSec=2
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
