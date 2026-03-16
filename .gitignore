@@ -59,6 +59,7 @@ dist/
 # Ignore local tools/scripts outputs
 *.bak
 *.swp
+tools/
 
 # Ignore devtools
 *.db
