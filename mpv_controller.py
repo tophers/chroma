@@ -1,5 +1,3 @@
-# /opt/jukebox/mpv_controller.py
-
 import json
 import socket
 import threading
@@ -13,10 +11,6 @@ class PendingRequest:
         self.error: Optional[str] = None
 
 class MPVController:
-    """
-    A controller for mpv's JSON IPC that reconnects.
-    Thread-safe socket writing.
-    """
 
     def __init__(
         self,
@@ -33,12 +27,10 @@ class MPVController:
         self._is_first_connect = True
 
         self._request_id_counter = 0
-        # This lock protects the socket writing
         self._lock = threading.Lock()
         self._pending_requests: dict[int, PendingRequest] = {}
 
     def connect(self):
-        """Starts the controller's main thread to manage the connection."""
         if self._main_thread is not None and self._main_thread.is_alive():
             return
 
@@ -48,7 +40,6 @@ class MPVController:
         self._main_thread.start()
 
     def _main_loop(self):
-        """The main loop that manages connection state."""
         while self._is_running.is_set():
             if self.sock is None:
                 self._connect_internal()
@@ -61,7 +52,6 @@ class MPVController:
             time.sleep(2)
 
     def _connect_internal(self):
-        """Internal method to establish a connection with retries."""
         print("[MPV] Attempting to connect to socket...")
         try:
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -88,7 +78,6 @@ class MPVController:
             self.sock = None
 
     def _listen_for_events(self):
-        """Reads from the socket and dispatches events until it breaks."""
         if not self.sock:
             return
 
@@ -120,7 +109,6 @@ class MPVController:
 
 
     def _dispatch_message(self, msg: dict):
-        """Inspect a message and route it to a request response or a listener."""
         request_id = msg.get("request_id")
 
         if request_id and request_id in self._pending_requests:
@@ -139,11 +127,9 @@ class MPVController:
                 print(f"[MPV] Error in event listener: {e}")
 
     def on_event(self, callback: Callable):
-        """Register a callback for raw mpv JSON events."""
         self.listeners.append(callback)
 
     def command(self, *args) -> Optional[int]:
-        """Send a generic mpv command (fire and forget)."""
         if not self.sock:
             return None
 
@@ -161,7 +147,6 @@ class MPVController:
                 return None
 
     def get_property(self, prop_name: str, timeout: float = 2.0) -> Any:
-        """Request a property from mpv and wait for the response."""
         pending = PendingRequest()
 
         with self._lock:
@@ -190,8 +175,6 @@ class MPVController:
             return None
 
         return pending.response_data
-
-    # helpers
 
     def load_file(self, path: str):
         self.command("loadfile", path, "replace")
