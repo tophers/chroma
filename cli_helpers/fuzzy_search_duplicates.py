@@ -1,7 +1,8 @@
 import difflib
 from pathlib import Path
 
-VIDEO_DIR = Path("/opt/videos")
+# --- CONFIG ---
+VIDEO_DIR = Path("/opt/music_videos")
 MATCH_THRESHOLD = 0.85  # 85% similarity threshold
 
 def find_fuzzy_duplicates():
@@ -10,9 +11,11 @@ def find_fuzzy_duplicates():
         print(f"Error: Directory not found at {VIDEO_DIR}")
         return
 
+    # 1. Grab all video files
     extensions = {'.mkv', '.mp4', '.avi'}
     files = [f for f in VIDEO_DIR.iterdir() if f.is_file() and f.suffix.lower() in extensions]
     
+    # Map lowercase stem (filename without extension) to the actual filename
     file_map = {f.stem.lower(): f.name for f in files}
     stems = list(file_map.keys())
     
@@ -20,16 +23,20 @@ def find_fuzzy_duplicates():
     
     found_dupes = set()
     
+    # 2. Compare files
     for i, stem1 in enumerate(stems):
         for j in range(i + 1, len(stems)):
             stem2 = stems[j]
             
+            # Optimization: If lengths are vastly different, don't run the expensive math
             if abs(len(stem1) - len(stem2)) > 10:
                 continue
                 
+            # Calculate similarity ratio
             ratio = difflib.SequenceMatcher(None, stem1, stem2).ratio()
             
             if ratio >= MATCH_THRESHOLD:
+                # Sort the pair so A-B and B-A are treated as the same match
                 match_pair = tuple(sorted([file_map[stem1], file_map[stem2]]))
                 
                 if match_pair not in found_dupes:
@@ -38,6 +45,7 @@ def find_fuzzy_duplicates():
                     print(f"  1. {match_pair[0]}")
                     print(f"  2. {match_pair[1]}\n")
 
+    # 3. Summary
     if not found_dupes:
         print("No fuzzy duplicates found! Your library is clean.")
     else:

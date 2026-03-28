@@ -13,20 +13,27 @@ def migrate():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
+    # 1. Enable WAL Mode (Concurrency Safety)
+    # This prevents 'database is locked' errors when Scanner and Player run at once.
     print("-> Enabling WAL mode...")
     cur.execute("PRAGMA journal_mode=WAL;")
     cur.execute("PRAGMA synchronous=NORMAL;") 
+
+    # 2. Define the new columns we need
+    # Format: (Column Name, Schema Definition)
     new_columns = [
         ("audio_gain",          "REAL DEFAULT 0.0"),
         ("integrated_loudness", "REAL"),
         ("true_peak",           "REAL"),
-        ("manual_override",     "INTEGER DEFAULT 0"), # INT for BOOLEAN
+        ("manual_override",     "INTEGER DEFAULT 0"), # SQLite uses INT for BOOLEAN
         ("analysis_version",    "INTEGER DEFAULT 1")
     ]
 
+    # 3. Get list of existing columns so we don't crash
     cur.execute("PRAGMA table_info(videos)")
     existing_columns = [row[1] for row in cur.fetchall()]
 
+    # 4. Apply changes
     for col_name, col_def in new_columns:
         if col_name not in existing_columns:
             print(f"-> Adding column: {col_name}")

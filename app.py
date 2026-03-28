@@ -1,3 +1,5 @@
+# /opt/jukebox/app.py
+
 import asyncio
 from pathlib import Path
 from typing import List, Optional
@@ -81,8 +83,13 @@ async def websocket_endpoint(websocket: WebSocket):
 def index():
     return FileResponse(STATIC_DIR / "index.html")
 
+@app.get("/touch")
+def touch_ui():
+    return FileResponse(STATIC_DIR / "touch.html")
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+# --- API Models ---
 class VolumeReq(BaseModel):
     volume: int
 class SeekReq(BaseModel):
@@ -94,13 +101,13 @@ class PlaylistItemReq(BaseModel):
 class GainReq(BaseModel):
     gain: float
 
+# --- API Endpoints ---
 @app.get("/api/initial-state")
 def api_initial_state():
     if not playback: return {}
     return playback.get_full_state()
 
 @app.get("/api/current")
-
 def api_current():
     current = playback.current if playback else None
     paused = playback.is_paused if playback else False
@@ -192,14 +199,15 @@ def api_unban_by_id(video_id: int):
     set_banned_by_id(video_id, False)
     return {"ok": True}
 
+# --- Audio Modification API ---
 @app.post("/api/videos/{video_id}/gain")
 def api_set_video_gain(video_id: int, req: GainReq):
     set_manual_gain(video_id, req.gain)
     if playback and playback.current and playback.current.get('id') == video_id:
         playback.set_gain_live(req.gain)
-        
     return {"ok": True}
 
+# --- Playlist API (Enhanced) ---
 @app.get("/api/playlists")
 def api_list_playlists():
     playlists = get_playlists()

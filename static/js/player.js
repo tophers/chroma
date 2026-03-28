@@ -1,3 +1,5 @@
+// /opt/jukebox/static/js/player.js
+
 let isSeeking = false;
 
 function updateState(state) {

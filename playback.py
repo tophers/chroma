@@ -1,3 +1,5 @@
+# /opt/jukebox/playback.py
+
 from typing import Optional, Dict, Any, List, Callable
 from collections import deque
 import asyncio
@@ -63,6 +65,7 @@ class PlaybackManager:
     def _play_video(self, video: Dict[str, Any]):
         if self.current:
             old_video = self.current
+            # Stamp the time right before moving to history
             old_video['played_at'] = datetime.utcnow().isoformat()
             self.history.appendleft(old_video)
             self.loop.run_in_executor(None, log_playback_history, old_video['id'])
@@ -73,16 +76,21 @@ class PlaybackManager:
         self.hang_counter = 0
         self.is_paused = False
 
+        # --- LOUDNESS NORMALIZATION ---
         db_gain = video.get('audio_gain')
         if db_gain is None:
             db_gain = 0.0
 
+        # The correct, consistent syntax for libavfilter chains in MPV
+        # 1. volume filter labeled as @chroma_norm
+        # 2. alimiter filter (hard limit at -1dB, asc=1 for smoother release)
         print(f"[Playback] Applying audio gain: {db_gain:.2f}dB")
         af_chain = (
             f"@chroma_norm:volume=volume={db_gain:.2f}dB,"
             f"alimiter=limit=-1dB:asc=1"
         )
         self.ctrl.command("set_property", "af", af_chain)
+        # ------------------------------
 
         self.ctrl.load_file(video["path"])
         self.ctrl.command("set_property", "pause", False)
@@ -93,6 +101,7 @@ class PlaybackManager:
 
         artist = video['artist'].upper().replace("{", "(").replace("}", ")")
         title = video['title'].replace("{", "(").replace("}", ")").replace("\\", "-")
+        #title = video['title'].replace("{", "(").replace("}", ")")
 
         msg = (
             f"{{\\an1}}{{\\bord2}}{{\\shad1}}"
@@ -108,10 +117,12 @@ class PlaybackManager:
         self.ctrl.set_volume(self.volume)
 
     def set_gain_live(self, new_gain: float):
+        """Updates the running audio filter dynamically by rebuilding the chain."""
         if self.current:
             self.current['audio_gain'] = new_gain
             print(f"[Playback] Live updating gain to {new_gain}dB")
 
+            # Rebuilding and applying the string is 100% reliable across all MPV versions
             new_chain = (
                 f"@chroma_norm:volume=volume={new_gain:.2f}dB,"
                 f"alimiter=limit=-1dB:asc=1"
@@ -135,6 +146,7 @@ class PlaybackManager:
             self._play_video(video_to_play)
         else:
             if self.current:
+                # Stamp the time right before moving to history
                 self.current['played_at'] = datetime.utcnow().isoformat()
                 self.history.appendleft(self.current)
             self.ctrl.stop()
@@ -157,6 +169,8 @@ class PlaybackManager:
     def seek(self, time_pos: float):
         if self.current:
             self.ctrl.command("seek", time_pos, "absolute")
+
+    # ---------- Queue & Playlist Management ----------
 
     def add_to_queue(self, video_id: int):
         video = get_video_by_id(video_id)
@@ -187,11 +201,13 @@ class PlaybackManager:
             self.broadcast_state()
 
     def clear_queue(self):
+        """Removes all items from the active queue."""
         self.queue = []
         print("[Playback] Queue cleared by user.")
         self.broadcast_state()
 
     def load_playlist_into_queue(self, playlist_id: int, shuffle: bool = False, least_played: bool = False):
+        """Appends all items from a playlist to the end of the queue, optionally shuffled or sorted."""
         items = get_playlist_items(playlist_id)
         if not items:
             print("[Playback] Playlist is empty.")
@@ -228,6 +244,7 @@ class PlaybackManager:
 
     def stop(self):
         if self.current:
+            # Stamp the time right before moving to history
             self.current['played_at'] = datetime.utcnow().isoformat()
             self.history.appendleft(self.current)
         self.ctrl.stop()

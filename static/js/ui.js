@@ -1,3 +1,5 @@
+// /opt/jukebox/static/ui.js
+
 const DOM = {
   status: document.getElementById("status-indicator"),
   message: document.getElementById("message"),

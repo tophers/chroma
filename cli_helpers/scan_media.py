@@ -7,13 +7,14 @@ import sys
 DIR = "/opt/music_videos"
 
 def get_video_info(filepath):
+    # Ask ffprobe to return pure JSON for the video stream and format
     cmd = [
         "ffprobe",
         "-v", "quiet",
         "-print_format", "json",
         "-show_format",
         "-show_streams",
-        "-select_streams", "v:0",
+        "-select_streams", "v:0", # Only look at the first video stream
         filepath
     ]
     
@@ -27,13 +28,16 @@ def get_video_info(filepath):
         filename = os.path.basename(filepath)
         codec = stream.get("codec_name", "Unknown")
         
+        # Resolution
         width = stream.get("width", 0)
         height = stream.get("height", 0)
         resolution = f"{width}x{height}" if width and height else "Unknown"
 
+        # Bitrate (convert bps to kbps)
         bitrate_bps = fmt.get("bit_rate")
         bitrate = f"{int(bitrate_bps) // 1000} kbps" if bitrate_bps else "Unknown"
 
+        # FPS (ffprobe returns fractions like '24000/1001')
         fps_raw = stream.get("r_frame_rate", "0/0")
         try:
             num, den = map(int, fps_raw.split('/'))
@@ -47,6 +51,7 @@ def get_video_info(filepath):
         return [os.path.basename(filepath), "Error", "Error", "Error", "Error"]
 
 def main():
+    # Write to standard output so we can pipe it to a file
     writer = csv.writer(sys.stdout)
     writer.writerow(["Filename", "Bitrate", "Resolution", "FPS", "Codec"])
 

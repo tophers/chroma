@@ -1,3 +1,5 @@
+// /opt/jukebox/static/js/playlists.js
+
 let currentPlaylistData = [];
 
 async function refreshPlaylistSelect() {

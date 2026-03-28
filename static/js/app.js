@@ -1,3 +1,6 @@
+// /opt/jukebox/static/app.js
+
+const apiRequest = chroma.apiRequest.bind(chroma);
 let volumeTimeout;
 let searchTimeout;
 
@@ -97,8 +100,26 @@ async function handleAction(action, id, el) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  connectWS(); // From api.js
+  
+  // --- CHROMA CORE BINDINGS ---
+  chroma.addEventListener('ws-connected', () => {
+      DOM.status.classList.add("connected");
+      DOM.status.classList.remove("error");
+      refreshPlaylistSelect();
+  });
 
+  chroma.addEventListener('ws-disconnected', () => {
+      DOM.status.classList.remove("connected");
+      DOM.status.classList.add("error");
+  });
+
+  // Wire core state updates directly to your existing player.js functions
+  chroma.addEventListener('state-changed', (e) => updateState(e.detail));
+  chroma.addEventListener('time-changed', (e) => updateTime(e.detail));
+
+  // Boot up the core
+  chroma.init();
+  
   const sortDropdown = document.getElementById("sort-select");
   if (sortDropdown) {
       sortDropdown.addEventListener("change", applySortAndRender);
