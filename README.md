@@ -1,41 +1,42 @@
-# CHROMA: Raspberry Pi 5 Video Jukebox
+# CHROMA: Raspberry Pi 5 Video Jukebox (v1.4)
 
 CHROMA is a dedicated, headless video appliance designed for the Raspberry Pi 5. It turns the device into a "set-and-forget" video player that outputs directly to a TV or Monitor via HDMI using raw DRM/KMS (no desktop environment required).
 
-The system is designed with a "broadcast" philosophy: silence is failure. It will always try to ensure a video is playing, managing a queue of user-selected tracks and falling back to a random shuffle of the local library when the queue is empty.
+The system is designed with a "broadcast" philosophy: **silence is failure.** It ensures a video is always playing by managing a user-selected queue and falling back to a "Weighted Neglect" random shuffle of the local library when the queue is empty.
 
 ## Key Features
 
-*   **Headless Appliance Architecture:** Runs on Raspberry Pi OS Lite without X11 or Wayland. MPV renders directly to the display hardware.
-*   **Redundant Playback Logic:** Includes a watchdog that detects frozen players, stuck buffers, or paused states at the end of files to force the next track.
-*   **Web-Based Dashboard:** A desktop-optimized control panel for managing the queue, searching the library, and creating playlists.
-*   **On-Screen Display (OSD):** Pro-style "Now Playing" overlays (Artist - Title) rendered directly on the video output.
-*   **Ban System:** Persistently ban specific tracks from random rotation without deleting the files.
-*   **Hardware Stats:** One-click overlay of dropped frames, CPU usage, and decoder health.
+* **Headless Appliance Architecture:** Runs on Raspberry Pi OS Lite without X11 or Wayland. MPV renders directly to the display hardware.
+* **Loudness Normalization (New):** Automatically analyzes library audio to target -14.0 LUFS, ensuring consistent volume across all videos without manual adjustment.
+* **Redundant Playback Logic:** Includes a watchdog that detects frozen players, stuck buffers, or stuck end-of-file states to force the next track.
+* **Web-Based Dashboard & Touch Remote:** Desktop-optimized control panel for management, plus a new mobile-friendly "Touch Remote" interface.
+* **On-Screen Display (OSD):** Pro-style "Now Playing" overlays (Artist - Title) rendered directly on the video output.
+* **Weighted Shuffle:** Intelligent randomization that prioritizes videos with lower play counts and older "last played" timestamps.
+* **Ban System:** Persistently ban specific tracks from rotation without deleting files.
 
 ## System Requirements
 
-*   **Hardware:** Raspberry Pi 5 (NVMe boot recommended for indexing speed).
-*   **Display:** 1080p or 4K TV/Monitor.
-*   **OS:** Raspberry Pi OS Lite (Bookworm or newer).
-*   **Media:** Local .mkv files organized as `Artist - Title.mkv`.
+* **Hardware:** Raspberry Pi 5 (NVMe boot recommended for indexing speed).
+* **Display:** 1080p or 4K TV/Monitor.
+* **OS:** Raspberry Pi OS Lite (Bookworm or newer).
+* **Media:** Local `.mkv`, `.mp4`, or `.avi` files organized as `Artist - Song.mkv`.
 
 ## Architecture
 
-The system consists of two main systemd services:
+The system consists of two main systemd services located in `/opt/jukebox`:
 
-1.  **mpv-jukebox:** Wraps the MPV media player in a specialized shell. It listens on a Unix socket for JSON IPC commands. It forces specific video modes (1080p60) to prevent HDMI handshake judder on 4K TVs.
-2.  **jukebox-api:** A Python FastAPI backend that manages the SQLite database, playback logic, playlist management, and serves the frontend.
+1.  **mpv-jukebox:** Wraps the MPV media player. It listens on a Unix socket for JSON IPC commands and renders via DRM/KMS.
+2.  **jukebox-api:** A Python FastAPI backend managing the SQLite (WAL mode) database, playback logic, and the event-driven "Chroma Core" frontend.
 
-## Installation
+## Installation & Setup
 
 1.  **System Prep:**
-    Ensure `/boot/firmware/cmdline.txt` forces the correct video mode to prevent 30Hz fallback on 4K screens:
+    Ensure `/boot/firmware/cmdline.txt` forces the correct video mode:
     `video=HDMI-A-1:1920x1080@60`
 
 2.  **Dependencies:**
     ```bash
-    sudo apt install mpv python3-venv
+    sudo apt install mpv ffmpeg python3-venv sqlite3
     ```
 
 3.  **Setup Environment:**
@@ -46,33 +47,43 @@ The system consists of two main systemd services:
     pip install fastapi uvicorn python-mpv-jsonipc
     ```
 
-4.  **Install Services:**
-    Copy the unit files from `./skeleton/` to `/etc/systemd/system/`, reload the daemon, and enable them.
+4.  **Database Migration (v1.3):**
+    If upgrading, run the migration script to enable loudness features:
+    ```bash
+    python3 cli_helpers/migrate_v1_3.py
+    ```
+
+## Audio Normalization
+
+CHROMA now performs a two-pass audio analysis:
+1.  **Scan:** The `scanner.py` uses `ffmpeg`'s ebur128 filter to measure integrated loudness and true peak.
+2.  **Apply:** During playback, a dynamic `af` (audio filter) chain is sent to MPV:
+    * **Gain:** Calculated to hit -14.0 LUFS with a "Soft Clamp" to protect transients.
+    * **Limiter:** A hard limiter at -1dB prevents clipping.
+3.  **Manual Override:** You can manually adjust and "lock" the gain for a specific track via the API/UI.
 
 ## Web Interface Controls
 
-Access the dashboard via `http://<pi-ip-address>:8000`.
+Access the dashboard via `http://<pi-ip-address>:8000` or the remote via `http://<pi-ip-address>:8000/touch`.
 
 ### Keyboard Shortcuts
-When the web interface is focused, the following shortcuts act as a remote control:
+* **Space:** Skip to Next.
+* **Arrow Up/Down:** Volume +/- 5%.
+* **Arrow Left/Right:** Seek +/- 10 seconds.
+* **S:** Toggle Hardware/Playback Stats Overlay.
 
-*   **Space:** Skip to Next (Intentionally not Play/Pause to encourage flow).
-*   **Arrow Up/Down:** Volume +/- 5%.
-*   **Arrow Left/Right:** Seek +/- 10 seconds.
-*   **S:** Toggle Hardware Stats Overlay.
-
-### Playlist Management
-*   **Queue:** Drag and drop is not currently supported; use the "Queue" button in the library.
-*   **Save Queue:** Converts the current play queue into a saved playlist.
-*   **Ban:** Immediately skips the current song and marks it as banned in the database. It will not play again in random shuffle.
+### Management Tools
+* **`scanner.py`:** Run this to discover new files and perform audio analysis.
+* **`find_missing.py`:** Identifies discrepancies between the filesystem and the database.
+* **`fuzzy_search_duplicates.py`:** Uses string similarity to find potential duplicate videos.
 
 ## Troubleshooting
 
-**Video is choppy / Dropped frames:**
-Check the "Stats" overlay (Press 'S'). If the display FPS matches the video FPS (usually 23.976 or 24), the TV might be in 30Hz mode. Ensure the kernel command line argument `video=HDMI-A-1:1920x1080@60` is applied.
+**Database is Locked:**
+The system now uses SQLite WAL mode. Ensure all scripts are importing `get_db` from `db.py` to maintain consistent PRAGMA settings.
 
-**Player hangs at the end of a song:**
-This is handled by the internal Watchdog. MPV is configured with `--keep-open=yes` to prevent the screen from flashing black between videos. The backend monitors the time-position; if the video is paused within 1.0 seconds of the end, it forces a skip.
+**Audio is too quiet/loud:**
+Check if the video has a `manual_override` set in the database. You can force a re-analysis of the library by running `python3 scanner.py` which will fill in missing LUFS data.
 
 ## License
 
