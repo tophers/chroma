@@ -1,10 +1,13 @@
+# /opt/jukebox/db.py
+
 import sqlite3
 import random
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-DB_PATH = Path("chroma.db")
+DB_PATH = Path("/opt/jukebox/jukebox.db")
+
 
 def get_db():
     db = sqlite3.connect(DB_PATH)
@@ -12,14 +15,18 @@ def get_db():
     db.execute("PRAGMA foreign_keys = ON;")
     return db
 
+
 def db_exists() -> bool:
     return DB_PATH.exists()
 
 def init_schema():
     db = get_db()
     cur = db.cursor()
+
     cur.execute("PRAGMA journal_mode=WAL;")
+
     cur.execute("PRAGMA foreign_keys = ON;")
+
     cur.executescript(
         """
         CREATE TABLE IF NOT EXISTS videos (
@@ -33,6 +40,8 @@ def init_schema():
             play_count      INTEGER NOT NULL DEFAULT 0,
             banned_at       TEXT,
             last_played     TEXT,
+
+            -- v1.3 Loudness Normalization
             audio_gain           REAL DEFAULT 0.0,
             integrated_loudness  REAL,
             true_peak            REAL,
@@ -67,6 +76,13 @@ def init_schema():
     db.close()
 
 def pick_random_video() -> Optional[Dict[str, Any]]:
+    """
+    Weighted Neglect Strategy:
+    1. Get candidates (Not Banned/Broken).
+    2. Sort by Play Count (ASC) then Last Played (ASC).
+    3. Take top 50.
+    4. Randomly select one from that pool.
+    """
     db = get_db()
     cur = db.cursor()
     cur.execute(
@@ -99,6 +115,7 @@ def get_video_by_id(video_id: int) -> Optional[Dict[str, Any]]:
     row = cur.fetchone()
     db.close()
     return dict(row) if row else None
+
 
 def get_all_videos() -> List[Dict[str, Any]]:
     db = get_db()
@@ -150,6 +167,7 @@ def update_play_stats(path: str):
     db.commit()
     db.close()
 
+
 def log_playback_history(video_id: int):
     db = get_db()
     cur = db.cursor()
@@ -159,6 +177,7 @@ def log_playback_history(video_id: int):
     )
     db.commit()
     db.close()
+
 
 def get_recent_history(limit: int = 20) -> List[Dict[str, Any]]:
     db = get_db()
@@ -176,6 +195,7 @@ def get_recent_history(limit: int = 20) -> List[Dict[str, Any]]:
     rows = cur.fetchall()
     db.close()
     return [dict(row) for row in rows]
+
 
 def mark_video_broken(path: str):
     db = get_db()
@@ -229,6 +249,7 @@ def get_all_video_paths() -> List[str]:
     db.close()
     return [row["path"] for row in rows]
 
+
 def prune_videos(paths_to_remove: List[str]):
     if not paths_to_remove:
         return
@@ -239,7 +260,9 @@ def prune_videos(paths_to_remove: List[str]):
     db.commit()
     db.close()
 
+
 def set_manual_gain(video_id: int, gain: float):
+    """Updates the audio gain and locks it so the scanner won't overwrite it."""
     db = get_db()
     cur = db.cursor()
     cur.execute(
@@ -253,6 +276,7 @@ def set_manual_gain(video_id: int, gain: float):
     db.commit()
     db.close()
 
+# --- Playlist Functions ---
 def create_playlist(name: str, video_ids: List[int]):
     db = get_db()
     cur = db.cursor()
@@ -274,6 +298,7 @@ def create_playlist(name: str, video_ids: List[int]):
     finally:
         db.close()
 
+
 def get_playlists():
     db = get_db()
     cur = db.cursor()
@@ -281,6 +306,7 @@ def get_playlists():
     rows = cur.fetchall()
     db.close()
     return [dict(row) for row in rows]
+
 
 def delete_playlist(playlist_id: int):
     db = get_db()
@@ -307,6 +333,7 @@ def get_playlist_items(playlist_id: int) -> List[Dict[str, Any]]:
     return [dict(row) for row in rows]
 
 def add_to_playlist(playlist_id: int, video_id: int) -> bool:
+    """Add a video to the end of a playlist. Returns True if added, False if duplicate."""
     db = get_db()
     cur = db.cursor()
     added = False

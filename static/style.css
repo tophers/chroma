@@ -1,3 +1,5 @@
+/* /opt/jukebox/static/style.css */
+
 * { box-sizing: border-box; }
 
 :root {
@@ -52,7 +54,7 @@ body {
   background: var(--bg-main);
   color: var(--text-main);
   height: 100vh;
-  overflow: hidden;
+  overflow: hidden; /* Prevent body scroll */
   transition: background 0.3s, color 0.3s;
 }
 
@@ -117,7 +119,7 @@ body {
 .main-view {
   grid-area: main;
   background: var(--bg-main);
-  overflow-y: auto;
+  overflow-y: auto; /* Independent scroll */
   padding: 32px;
   position: relative;
   transition: background 0.3s;
@@ -173,20 +175,23 @@ h2 { margin-top: 0; font-size: 1.5rem; margin-bottom: 20px; }
   border: none;
   color: var(--text-sub);
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 8px;
+  
+  width: 40px;
+  height: 40px;
+  padding: 0; 
   border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
+  
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  font-size: 1.2rem;
   transition: color 0.2s, background 0.2s;
 }
-.control-btn:hover { color: var(--text-main); background: var(--bg-hover); }
 
-.control-btn.primary {
-  background: var(--text-main); color: var(--bg-main);
-  width: 32px; height: 32px;
-  font-size: 1rem;
+.control-btn:hover { 
+  color: var(--text-main); 
+  background: var(--bg-hover); 
 }
-.control-btn.primary:hover { transform: scale(1.05); background: var(--text-main); filter: brightness(0.9); }
 
 .progress-container {
   width: 100%;

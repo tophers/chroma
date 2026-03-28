@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Dark Background (CRT Shape) -->
+  <rect x="4" y="10" width="56" height="44" rx="8" ry="8" fill="#121212" stroke="#1db954" stroke-width="3"/>
+  
+  <!-- Screen Glare (Subtle reflection) -->
+  <path d="M10 16 Q 32 22 54 16" stroke="rgba(255,255,255,0.1)" stroke-width="3" fill="none"/>
+  
+  <!-- Play Triangle / Signal -->
+  <path d="M26 24 L 44 32 L 26 40 Z" fill="#1db954"/>
+  
+  <!-- Status Dot (Standby Light) -->
+  <circle cx="54" cy="48" r="2" fill="#e53935" opacity="0.8"/>
+</svg>

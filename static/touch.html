@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Chroma Remote</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">  
+  <style>
+    :root {
+      --bg: #121212;
+      --surface: #1e1e1e;
+      --accent: #1db954;
+      --text: #ffffff;
+      --subtext: #a0a0a0;
+      --danger: #ff5252;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      /* FIX: Use svh (short viewport height) to avoid Android Nav Bar overlap */
+      height: 100svh; 
+      display: flex;
+      flex-direction: column;
+      overflow: hidden; 
+    }
+
+    header {
+      flex-shrink: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 20px; background: var(--surface); border-bottom: 1px solid #333;
+    }
+    
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; }
+    .status-dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .status-dot.error { background: var(--danger); }
+    .back-link { color: var(--subtext); text-decoration: none; font-size: 0.9rem; }
+
+    .hero {
+      flex-shrink: 0;
+      padding: 20px 20px;
+      text-align: center;
+    }
+    #touch-artist { font-size: 1.1rem; color: var(--subtext); margin-bottom: 4px; font-weight: 500; }
+    #touch-title { font-size: 1.8rem; font-weight: bold; line-height: 1.1; margin: 0; }
+
+    .scrollable-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 20px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    select {
+      width: 100%;
+      padding: 18px; 
+      background: #222;
+      color: white;
+      border: 1px solid #444;
+      border-radius: 16px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 20px center;
+      background-size: 24px;
+    }
+
+    .btn-drawer {
+      width: 100%; padding: 16px; background: #222; color: white;
+      border: 1px solid #333; border-radius: 12px; font-size: 1rem;
+      font-weight: bold; text-align: center; cursor: pointer;
+    }
+
+    .drawer-content {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: -6px;
+    }
+    
+    #touch-search-input {
+      width: 100%; padding: 14px; background: #222; color: white;
+      border: 1px solid #444; border-radius: 8px; font-size: 1rem; margin-bottom: 10px;
+    }
+
+    .list-container {
+      max-height: 35vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+    }
+    
+    .result-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #2a2a2a; padding: 14px; border-radius: 10px;
+    }
+    .result-info { flex: 1; min-width: 0; padding-right: 10px; text-align: left; }
+    .result-title { font-weight: bold; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-artist { font-size: 0.8rem; color: var(--subtext); }
+    
+    .result-actions { display: flex; gap: 6px; }
+    .btn-action {
+      background: #444; border: none; color: white; width: 44px; height: 44px;
+      border-radius: 8px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
+    }
+    
+    .hidden { display: none !important; }
+
+    /* Fixed Bottom Controls */
+    .controls {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-top: 1px solid #333;
+      display: flex; 
+      justify-content: space-evenly; 
+      align-items: center;
+      /* FIX: Significant padding at bottom to clear Android Nav Bar */
+      padding: 20px 20px 45px 20px; 
+    }
+
+    .btn-touch {
+      background: #333; border: none; color: white; border-radius: 50%;
+      width: 60px; height: 60px; font-size: 1.4rem; display: flex; align-items: center; justify-content: center;
+    }
+    .btn-touch:active { background: #444; transform: scale(0.95); }
+    
+    .btn-play { background: var(--text); color: var(--bg); width: 75px; height: 75px; font-size: 1.8rem; }
+    
+    /* Ban Button styling to match desktop but sized for touch */
+    .btn-ban-touch {
+      background: transparent;
+      border: 2px solid var(--danger);
+      color: var(--danger);
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-weight: bold;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .btn-ban-touch:active { background: rgba(255, 82, 82, 0.2); }
+
+  </style>
+</head>
+<body>
+
+  <header>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div id="touch-status" class="status-dot"></div>
+      <span style="font-weight: bold; letter-spacing: 1px;">CHROMA</span>
+    </div>
+    <a href="/" class="back-link">Desktop ↗</a>
+  </header>
+
+  <div class="hero">
+    <div id="touch-artist">—</div>
+    <h1 id="touch-title">Not Playing</h1>
+  </div>
+
+  <div class="scrollable-content">
+    <select id="touch-playlist-select">
+      <option value="" disabled selected>Load a Playlist...</option>
+    </select>
+
+    <button id="btn-toggle-search" class="btn-drawer">🔍 Search & Add</button>
+    <div id="search-drawer" class="drawer-content hidden">
+      <input type="text" id="touch-search-input" placeholder="Type artist or song..." autocomplete="off">
+      <div id="touch-search-results" class="list-container"></div>
+    </div>
+
+    <button id="btn-toggle-queue" class="btn-drawer">📋 View Queue</button>
+    <div id="queue-drawer" class="drawer-content hidden">
+      <div id="touch-queue-results" class="list-container"></div>
+      <button class="btn-drawer" style="margin-top: 10px; background: #440000; color: #ff5252;" onclick="chroma.clearQueue()">Clear Queue</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="btn-touch-ban" class="btn-ban-touch">BAN</button>
+    <button id="btn-touch-pause" class="btn-touch btn-play">⏸</button>
+    <button id="btn-touch-next" class="btn-touch">⏭</button>
+  </div>
+
+  <script src="/static/js/core.js?v=1.1"></script>
+  <script src="/static/js/app-touch.js?v=1.1"></script>
+</body>
+</html>

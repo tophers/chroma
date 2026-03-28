@@ -13,12 +13,14 @@ def cleanup_orphans():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
+    # 1. Clean orphaned playlist items
     cur.execute("""
         DELETE FROM playlist_items 
         WHERE playlist_id NOT IN (SELECT id FROM playlists)
     """)
     playlists_cleaned = cur.rowcount
     
+    # 2. Clean orphaned playback history (if any videos were pruned)
     cur.execute("""
         DELETE FROM playback_history 
         WHERE video_id NOT IN (SELECT id FROM videos)
